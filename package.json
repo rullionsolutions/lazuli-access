@@ -1,0 +1,18 @@
+{
+  "name": "lazuli-access",
+  "version": "0.0.0",
+  "description": "Users, Roles and Sessions",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodeunit test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:rullionsolutions/lazuli-access"
+  },
+  "author": "stephen.d.francis@gmail.com",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "lapis-core": ">= 0.0.0"
+  }
+}
