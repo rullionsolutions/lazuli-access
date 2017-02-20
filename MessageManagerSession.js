@@ -26,8 +26,7 @@ module.exports.override("chain", function (funct) {
 
 module.exports.override("clear", function (tag) {
     Core.MessageManager.clear.call(this, tag);
-    this.chain(function (msg_mgr) { msg_mgr.clear(tag); });
-//    if (this.trans && !this.trans.active) {
-//        delete this.trans;
-//    }
+    this.chain(function (msg_mgr) {
+        msg_mgr.clear(tag);
+    });
 });

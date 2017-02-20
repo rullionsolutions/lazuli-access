@@ -94,14 +94,9 @@ module.exports.define("getItemByPage", function (page) {
 * To determine the url of the item based on its page and url properties and whether
 *   the user has access to that url
 * @return string url
-*/
 module.exports.define("getURL", function () {
     var url = "";
-    if (this.page && UI.Page.getPage(this.page)) {
-        url = UI.Page.getPage(this.page).getSimpleURL();
-    }
-    if (this.url) {
-        url += this.url;
+    if (this.page) {
     }
     return url;
 });
@@ -113,15 +108,28 @@ module.exports.define("getLabel", function () {
         || UI.Page.getPage(this.page).title))
         || "[unknown label]";
 });
+*/
 
 
+// should return { url: null, label: null } if access denied
 module.exports.define("getURLandLabel", function (session) {
-    var out = {};
-    out.url = this.getURL();
-    out.label = this.getLabel();
-    if (this.page && !session.allowedURL(out.url)) {
-        out.url = null;
-        out.label = null;
+    var out = {
+        urL: this.url,
+        label: this.label,
+    };
+    var page;
+    if (this.page) {
+        try {
+            page = UI.Page.pages.getThrowIfUnrecognized(this.page);
+            out.url = page.getSimpleURL() + (this.url || "");
+            out.label = out.label || page.short_title || page.title;
+            if (!session.allowedURL(out.url)) {
+                out.url = null;
+                out.label = null;
+            }
+        } catch (e) {
+            this.error("unknown MenuItem page: " + this.page);
+        }
     }
     return out;
 });

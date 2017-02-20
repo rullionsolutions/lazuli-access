@@ -6,6 +6,7 @@ var SQL = require("lazuli-sql/index.js");
 var Data = require("lazuli-data/index.js");
 var Access = require("lazuli-access/index.js");
 
+var session_cache = {};
 
 /**
 * To represent a user interacting with the system
@@ -15,7 +16,6 @@ module.exports = Core.Base.clone({
     active: false,
     home_page_url: "?page_id=home",
     max_inactive_interval: (60 * 30),            // in seconds, 30 mins
-    session_cache: {},
 //    allow_multiple_concurrent: false
 //          -- not implemented until we have cross-app-server comms
 });
@@ -30,8 +30,9 @@ module.exports.override("clone", function (spec) {
     if (!spec.user_id) {
         this.throwError("user_id property required");
     }
+    spec.instance = true;
     this.prepareSpec(spec);
-    session = Access.Session.clone.call(this, spec);
+    session = Core.Base.clone.call(this, spec);
     session.active = true;
     session.visits = 0;
     session.messages = session.getMessageManager();
@@ -42,7 +43,7 @@ module.exports.override("clone", function (spec) {
     session.getUserData();
     // session.persistSessionStart();
 
-    this.session_cache[spec.id] = session;
+    session_cache[spec.id] = session;
 
 // if (!session.allow_multiple_concurrent && !spec.chameleon) {
 //     if (session.closeAll(session.id, session.user_id) > 0) {
@@ -68,6 +69,7 @@ module.exports.define("getMessageManager", function () {
         this.messages = Access.MessageManagerSession.clone({
             id: this.id,
             session: this,
+            instance: true,
         });
     }
     return this.messages;
@@ -237,10 +239,10 @@ module.exports.define("getNewPageNoTidyUp", function (page_id, page_key) {
     if (!page_obj) {
         this.throwError("page not found: " + page_id);
     }
-    allowed = page_obj.allowed(this, page_key);                     // §vani.core.7.5.1.1
+    allowed = page_obj.allowed(this, page_key);
     if (!allowed.access) {
         allowed.id = "access_denied";
-        if (allowed.reason === "workflow-only page") {              // §vani.core.7.2.4.6
+        if (allowed.reason === "workflow-only page") {
             this.checkCompletedWorkflowTask(page_id, page_key, allowed);
         }
         this.debug(allowed.toString());          // provide fuller reason text
@@ -266,10 +268,10 @@ module.exports.define("getNewPage", function (page_id, page_key) {
     if (!UI.Page.getPage(page_id)) {
         this.throwError("page not found: " + page_id);
     }
-    allowed = UI.Page.getPage(page_id).allowed(this, page_key);             // §vani.core.7.5.1.1
+    allowed = UI.Page.getPage(page_id).allowed(this, page_key);
     if (!allowed.access) {
         allowed.id = "access_denied";
-        if (allowed.reason === "workflow-only page") {              // §vani.core.7.2.4.6
+        if (allowed.reason === "workflow-only page") {
             this.checkCompletedWorkflowTask(page_id, page_key, allowed);
         }
         this.debug(allowed.toString());          // provide fuller reason text
@@ -417,7 +419,7 @@ module.exports.define("allowedPageTask", function (page_id, page_key, allowed) {
 });
 
 
-module.exports.define("checkCompletedWorkflowTask", function (page_id, page_key, allowed) {     // §vani.core.7.2.4.6
+module.exports.define("checkCompletedWorkflowTask", function (page_id, page_key, allowed) {
     return undefined;
 });
 
@@ -498,7 +500,6 @@ module.exports.define("close", function () {
     this.updateVisit();            // report leftover messages
     this.clearPageCache(true);
     this.persistSessionEnd();
-    // delete x.active_sessions[this.id];
     if (this.http_session) {
         try {
             this.http_session.removeAttribute("js_session");
@@ -509,6 +510,7 @@ module.exports.define("close", function () {
         delete this.http_session;
     }
     this.active = false;
+    delete session_cache[this.id];
 });
 
 
@@ -523,25 +525,19 @@ module.exports.define("persistSessionEnd", function () {
 * @param except_this_session_id (string) optional - don't close the specified session;
 *   only_this_user_id (string) optional - only close this user's sessions
 * @return number of sessions closed
+*/
 module.exports.define("closeAll", function (except_this_session_id, only_this_user_id) {
-    var i,
-        count = 0;
-
-    for (i in x.active_sessions) {
-        if (x.active_sessions.hasOwnProperty(i) && i !== except_this_session_id
-                && (!only_this_user_id || only_this_user_id === x.active_sessions[i].user_id)) {
-            x.active_sessions[i].close();
+    var count = 0;
+    Object.keys(session_cache).forEach(function (session_id) {
+        var session = session_cache[session_id];
+        if (session_id !== except_this_session_id
+                && (!only_this_user_id || only_this_user_id === session.user_id)) {
+            session.close();
             count += 1;
         }
-    }
+    });
     return count;
 });
-*/
-
-
-// App.defbind("closeAllSessions", "stop", function () {
-//     Session.closeAll();
-// });
 
 
 // always_check_key forces a check of record's existence
@@ -552,9 +548,9 @@ module.exports.define("closeAll", function (except_this_session_id, only_this_us
 * @param url: relative or absolute
 * @return true if access is not prevented, and false otherwise
 */
-module.exports.define("allowedURL", function (url) {                           // §vani.core.7.2.1.2
+module.exports.define("allowedURL", function (url) {
     var page;
-    var match = url.match(/[\?&]page_id=(\w+)(&page_key=([\w\.]+))?/);
+    var match = url.match(/[?&]page_id=(\w+)(&page_key=([\w.]+))?/);
     this.trace("allowedURL() url: " + url + ", match: " + match);
     if (!match) {
         return true;
@@ -571,15 +567,16 @@ module.exports.define("allowedURL", function (url) {                           /
 * To check a specific security rule
 * @params security rule object, allowed object, level string
 */
-module.exports.define("checkSecurityLevel", function (obj, allowed, level) {   // §vani.core.7.2.6.3
+module.exports.define("checkSecurityLevel", function (obj, allowed, level) {
+    var that = this;
     Object.keys(obj).forEach(function (n) {
-        if (this.isUserInRole(n) && typeof obj[n] === "boolean") {
+        if (that.isUserInRole(n) && typeof obj[n] === "boolean") {
             allowed.found = true;
-            allowed.access = allowed.access || obj[n];                  // §vani.core.7.2.6.4
+            allowed.access = allowed.access || obj[n];
             allowed.role = (allowed.role ? allowed.role + ", " : "") + n;
         }
     });
-    if (!allowed.found && typeof obj.all === "boolean") {               // §vani.core.7.2.6.5
+    if (!allowed.found && typeof obj.all === "boolean") {
         allowed.found = true;
         allowed.access = obj.all;
         allowed.role = "all";
@@ -786,5 +783,5 @@ module.exports.define("newVisit", function (page_id, page_title, params, page_ke
 
 module.exports.define("updateVisit", function (trans, start_time) {
     this.messages.trans = trans;
-    this.messages.clear("record");
+    // this.messages.clear("record");
 });
