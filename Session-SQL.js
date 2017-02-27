@@ -8,8 +8,7 @@ var Rhino = require("lazuli-rhino/index.js");
 
 
 Access.Session.reassign("prepareSpec", function (spec) {
-    // return Parent.getEntity("ac_max_key").generate("ac_session", null, null, "id", null, this);
-    spec.session_row = Data.Entity.entities.get("ac_session").cloneAutoIncrement({}, {
+    spec.session_row = Data.entities.get("ac_session").cloneAutoIncrement({}, {
         user_id: spec.user_id,
         start_dttm: "now",
         status: "A",
@@ -23,19 +22,15 @@ Access.Session.reassign("prepareSpec", function (spec) {
 });
 
 
-Access.Session.reassign("getUserData", function () {
-    this.user_row = Data.Entity.entities.get("ac_user").getRow(this.user_id);        // unmodifiable row
+Access.Session.defbind("getUserData", "start", function () {
+    this.user_row = Data.entities.get("ac_user").getRow(this.user_id);        // unmodifiable row
     this.user_name = this.user_row.getField("name").get();
     this.nice_name = Core.Format.convertNameFirstSpaceLast(this.user_name);
-    this.loadRoles();               // defined in ac_user_role
-    this.loadDelegaters();          // defined in ac_user_deleg
-    this.reportLastLogin();         // defined in ac_session
-    this.passwordLastUpdated();
 });
 
 
-Access.Session.define("loadRoles", function () {
-    var query = Data.Entity.entities.get("ac_user_role").getQuery(true);          // default sort
+Access.Session.defbind("loadRoles", "start", function () {
+    var query = Data.entities.get("ac_user_role").getQuery(true);          // default sort
     query.addCondition({
         column: "user_id",
         operator: "=",
@@ -49,8 +44,8 @@ Access.Session.define("loadRoles", function () {
 });
 
 
-Access.Session.define("loadDelegaters", function () {
-    var query = Data.Entity.entities.get("ac_user_deleg").getQuery();
+Access.Session.defbind("loadDelegaters", "start", function () {
+    var query = Data.entities.get("ac_user_deleg").getQuery();
     var delegater;
     var delegaters_text = "";
     var delim = "";
@@ -87,11 +82,15 @@ Access.Session.define("loadDelegaters", function () {
 * Checks whether it is necessary to change the password according the password_change_period
 * property or if pswd_last_upd is blank in the db.
 */
-Access.Session.define("passwordLastUpdated", function () {
-    var last_upd = this.user_row.getField("pswd_last_upd").getDate();
+Access.Session.defbind("passwordLastUpdated", "start", function () {
+    var last_upd;
     var days_left;
 
-    if (typeof this.password_change_period === "number" && !this.chameleon) {
+    if (this.is_guest || this.chameleon) {
+        return;
+    }
+    last_upd = this.user_row.getField("pswd_last_upd").getDate();
+    if (typeof this.password_change_period === "number") {
         if (!last_upd) {
             this.force_password_change = true;
             return;
@@ -127,9 +126,12 @@ Access.Session.reassign("persistSessionEnd", function () {
 * To log in the session.messages the last login date and time taken from the db using the user_id
 * as key for the query
 */
-Access.Session.define("reportLastLogin", function () {
+Access.Session.defbind("reportLastLogin", "start", function () {
     var resultset;
     var last_login_dttm;
+    if (this.is_guest) {
+        return;
+    }
     try {
         resultset = SQL.Connection.shared.executeQuery("SELECT MAX(start_dttm) FROM ac_session WHERE user_id="
             + SQL.Connection.escape(this.user_id) + " AND id <> " + this.id);

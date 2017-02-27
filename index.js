@@ -1,7 +1,16 @@
 "use strict";
 
+var Core = require("lapis-core/index.js");
+
 
 exports.Role = require("lazuli-access/Role.js");
+
+exports.roles = Core.Collection.clone({
+    id: "roles",
+    item_type: exports.Role,
+});
+
+
 exports.Session = require("lazuli-access/Session.js");
 require("lazuli-access/Session-SQL.js");
 exports.MenuItem = require("lazuli-access/MenuItem.js");

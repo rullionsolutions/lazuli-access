@@ -14,25 +14,3 @@ module.exports = Core.Base.clone({
     params: null,                     // role-specific parameter object
     priority: 0,
 });
-
-
-module.exports.roles = Core.Collection.clone({
-    id: "roles",
-    item_type: module.exports,
-});
-
-
-// module.exports.defbind("registerRole", "cloneType", function () {
-//     if (roles[this.id]) {
-//         this.throwError("role already registered: " + this.id);
-//     }
-//     roles[this.id] = this;
-// });
-
-
-module.exports.define("getRole", function (id) {
-    if (!module.exports.roles[id]) {
-        this.throwError("role not registered: " + id);
-    }
-    return module.exports.roles[id];
-});

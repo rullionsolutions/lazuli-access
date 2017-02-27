@@ -103,9 +103,9 @@ module.exports.define("getURL", function () {
 
 
 module.exports.define("getLabel", function () {
-    return this.label || (this.page && UI.Page.getPage(this.page)
-        && (UI.Page.getPage(this.page).short_title
-        || UI.Page.getPage(this.page).title))
+    return this.label || (this.page && UI.pages.get(this.page)
+        && (UI.pages.get(this.page).short_title
+        || UI.pages.get(this.page).title))
         || "[unknown label]";
 });
 */
@@ -120,7 +120,7 @@ module.exports.define("getURLandLabel", function (session) {
     var page;
     if (this.page) {
         try {
-            page = UI.Page.pages.getThrowIfUnrecognized(this.page);
+            page = UI.pages.getThrowIfUnrecognized(this.page);
             out.url = page.getSimpleURL() + (this.url || "");
             out.label = out.label || page.short_title || page.title;
             if (!session.allowedURL(out.url)) {

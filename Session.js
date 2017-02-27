@@ -40,17 +40,7 @@ module.exports.override("clone", function (spec) {
     session.roles = [];
     session.list_section = {};
     session.last_non_trans_page_url = session.home_page_url;
-    session.getUserData();
-    // session.persistSessionStart();
-
     session_cache[spec.id] = session;
-
-// if (!session.allow_multiple_concurrent && !spec.chameleon) {
-//     if (session.closeAll(session.id, session.user_id) > 0) {
-//         session.messages.add({
-//          type: 'W', text: "You had other open sessions which have been now been closed" });
-//     }
-// }
     session.happen("start");
     return session;
 });
@@ -83,18 +73,13 @@ module.exports.define("prepareSpec", function (spec) {
 });
 
 
-module.exports.define("getUserData", function (spec) {
-    return undefined;
-});
-
-
 module.exports.define("getSessionId", function () {
     return this.id;
 });
 
 
 module.exports.define("addRole", function (role_id) {
-    this.roles.push(Access.Role.getRole(role_id));      // throws Error if role_id not registered
+    this.roles.push(Access.roles.get(role_id));      // throws Error if role_id not registered
 });
 
 
@@ -117,7 +102,7 @@ module.exports.define("isUserInRole", function (role_id) {
 
 
 module.exports.define("isAdmin", function (module_id) {
-    var area = module_id && Data.Area.getArea(module_id);
+    var area = module_id && Data.areas.get(module_id);
     var allowed = {
         access: this.isUserInRole("sysmgr"),
     };
@@ -232,7 +217,7 @@ module.exports.define("getPageFromCacheAndRemove", function (page_id, page_key) 
 
 
 module.exports.define("getNewPageNoTidyUp", function (page_id, page_key) {
-    var page_obj = UI.Page.getPage(page_id);
+    var page_obj = UI.pages.get(page_id);
     var page_inst;
     var allowed;
 
@@ -265,10 +250,10 @@ module.exports.define("getNewPage", function (page_id, page_key) {
     var page;
     var allowed;
 
-    if (!UI.Page.getPage(page_id)) {
+    if (!UI.pages.get(page_id)) {
         this.throwError("page not found: " + page_id);
     }
-    allowed = UI.Page.getPage(page_id).allowed(this, page_key);
+    allowed = UI.pages.get(page_id).allowed(this, page_key);
     if (!allowed.access) {
         allowed.id = "access_denied";
         if (allowed.reason === "workflow-only page") {
@@ -278,7 +263,7 @@ module.exports.define("getNewPage", function (page_id, page_key) {
         this.throwError(allowed);
     }
     try {
-        page = UI.Page.getPage(page_id).clone({
+        page = UI.pages.get(page_id).clone({
             id: page_id,
             page: page_id,
             page_key: page_key,
@@ -555,7 +540,7 @@ module.exports.define("allowedURL", function (url) {
     if (!match) {
         return true;
     }
-    page = UI.Page.getPage(match[1]);
+    page = UI.pages.get(match[1]);
     if (!page) {
         this.throwError("page not found: " + match[1]);
     }
@@ -704,7 +689,7 @@ module.exports.define("unisrch", function (query, out, limit) {
 module.exports.defbind("unisrchOrder", "start", function () {
     var that = this;
     this.unisrch_entities = [];
-    Data.Entity.entities.each(function (entity) {
+    Data.entities.each(function (entity) {
         if (entity.full_text_search) {
             that.unisrch_entities.push(entity);
         }
