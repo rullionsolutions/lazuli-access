@@ -161,14 +161,17 @@ Access.Session.defbind("reportLastLogin", "start", function () {
 Access.Session.reassign("newVisit", function (page_id, page_title, params, page_key) {
     var sql;
     this.visits += 1;
-    sql = "INSERT INTO ac_visit ( id, session_id, _key, page, title, date_time, parameters, page_key ) VALUES ( " +
+    sql = "INSERT INTO ac_visit ( id, session_id, _key, page, title, date_time, page_key, parameters ) VALUES ( " +
         this.visits + ", " + this.id + ", " +
         SQL.Connection.escape(this.id + "." + this.visits) + ", " +
         SQL.Connection.escape(page_id) + ", " +
-        SQL.Connection.escape(page_title, 100) + ", now(), " +
-//        Connection.escape(page ? page.getSimpleURL() : null) + ", " +
-        SQL.Connection.escape(this.view.call(params, "block")) + ", " +
-        SQL.Connection.escape(page_key, 80);
+        SQL.Connection.escape(page_title, 100) + ", NOW(), " +
+        SQL.Connection.escape(page_key, 80) + ", ";
+    if (params) {
+        sql += SQL.Connection.escape(this.view.call(params, "block"));
+    } else {
+        sql += "NULL";
+    }
     SQL.Connection.shared.executeUpdate(sql + " )");
     return this.visits;
 });
@@ -179,9 +182,9 @@ Access.Session.reassign("updateVisit", function (trans, start_time) {
     this.messages.trans = trans;
     sql = "UPDATE ac_visit SET " +
         "  tx = " + SQL.Connection.escape(trans ? trans.id : null) +
-        ", messages = " + SQL.Connection.escape(this.messages.getString("record", null, null, "I")) +
-        ", warnings = " + SQL.Connection.escape(this.messages.getString("record", null, null, "W")) +
-        ", errors   = " + SQL.Connection.escape(this.messages.getString("record", null, null, "E"));
+        ", messages = " + SQL.Connection.escape(this.messages.getString("\n", "I")) +
+        ", warnings = " + SQL.Connection.escape(this.messages.getString("\n", "W")) +
+        ", errors   = " + SQL.Connection.escape(this.messages.getString("\n", "E"));
     if (start_time) {
         sql += ", post_server = " + ((new Date().getTime()) - start_time);
     }
