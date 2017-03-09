@@ -37,6 +37,7 @@ module.exports.override("clone", function (spec) {
     session.visits = 0;
     session.messages = session.getMessageManager();
     session.page_cache = [];
+    session.active_trans_cache = {};
     session.roles = [];
     session.list_section = {};
     session.last_non_trans_page_url = session.home_page_url;
@@ -121,27 +122,11 @@ module.exports.define("isAdmin", function (module_id) {
 */
 module.exports.define("getNewTrans", function (props) {
     var trans;
-    // allow multiple transactions
-    // if (this.curr_active_trans) {
-    //     this.throwError("active transaction already exists for this session");
-    // }
     props = props || {};
     props.session = this;
     trans = Data.Transaction.clone(props);
     // this.curr_active_trans = trans;
     return trans;
-});
-
-
-module.exports.define("resetTrans", function () {
-    if (this.curr_active_trans && this.curr_active_trans.isActive()) {
-        try {
-            this.curr_active_trans.cancel();
-        } catch (e) {
-            this.report(e);
-        }
-    }
-    this.curr_active_trans = null;
 });
 
 
@@ -472,18 +457,11 @@ module.exports.define("close", function () {
     if (!this.active) {
         return;
     }
-    // allow a transaction to remain after session  close?
-    // if (this.curr_active_trans) {
-    //     try {
-    //         this.curr_active_trans.cancel();
-    //     } catch (e1) {
-    //         Log.report(e1);
-    //     }
-    // }
     this.happen("close");
     this.newVisit(null, "Final Messages");
     this.updateVisit();            // report leftover messages
     this.clearPageCache(true);
+    this.cancelActiveTransactions();
     this.persistSessionEnd();
     if (this.http_session) {
         try {
@@ -496,6 +474,24 @@ module.exports.define("close", function () {
     }
     this.active = false;
     delete session_cache[this.id];
+});
+
+
+module.exports.define("addActiveTransaction", function (trans) {
+    this.active_trans_cache[trans.id] = trans;
+});
+
+
+module.exports.define("removeActiveTransaction", function (trans_id) {
+    delete this.active_trans_cache[trans_id];
+});
+
+
+module.exports.define("cancelActiveTransactions", function () {
+    var that = this;
+    Object.keys(this.active_trans_cache).forEach(function (trans_id) {
+        that.active_trans_cache[trans_id].cancel();     // calls removeActiveTransaction()
+    });
 });
 
 

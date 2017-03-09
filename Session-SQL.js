@@ -113,7 +113,7 @@ Access.Session.defbind("passwordLastUpdated", "start", function () {
 Access.Session.reassign("persistSessionEnd", function () {
     try {
         this.session_row.getField("status").set("C");
-        this.session_row.getField("end_dttm").set("today");
+        this.session_row.getField("end_dttm").set("NOW");
         // this.session_row.getField("user_agent").set(this.user_agent);
         this.session_row.save();
     } catch (e) {
