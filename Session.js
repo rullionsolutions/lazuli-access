@@ -50,6 +50,7 @@ module.exports.override("clone", function (spec) {
 // shim
 module.exports.define("events", {
     add: function (id, event, script) {
+        module.exports.warn("Session.events shim used: " + id + ", " + event);
         module.exports.defbind(id, event, script);
     },
 });
