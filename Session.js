@@ -14,7 +14,7 @@ var session_cache = {};
 module.exports = Core.Base.clone({
     id: "Session",
     active: false,
-    home_page_url: "?page_id=home",
+    home_page_id: "home",
     max_inactive_interval: (60 * 30),            // in seconds, 30 mins
 //    allow_multiple_concurrent: false
 //          -- not implemented until we have cross-app-server comms
@@ -40,7 +40,6 @@ module.exports.override("clone", function (spec) {
     session.active_trans_cache = {};
     session.roles = [];
     session.list_section = {};
-    session.last_non_trans_page_url = session.home_page_url;
     session_cache[spec.id] = session;
     session.happen("start");
     return session;
@@ -578,6 +577,7 @@ module.exports.define("renderTaskRecord", function (resultset, iter) {
     var inst_title = SQL.Connection.getColumnString(resultset, 4);
     var due_date = SQL.Connection.getColumnString(resultset, 5);
     var module = SQL.Connection.getColumnString(resultset, 6);
+    var page = UI.pages.getThrowIfUnrecognized(page_id);
 
     if (iter.module !== module) {
         this.renderTaskModule(iter, module);
@@ -589,7 +589,7 @@ module.exports.define("renderTaskRecord", function (resultset, iter) {
         css_class += "_overdue";
     }
     elmt_task = iter.elmt_task_group.addChild("li", null, css_class).addChild("a");
-    elmt_task.attribute("href", "index.html?page_id=" + page_id + (page_key ? "&page_key=" + page_key : ""));
+    elmt_task.attribute("href", page.getSimpleURL(page_key));
     elmt_task.addText(inst_title);
 });
 
@@ -697,6 +697,17 @@ module.exports.defbind("unisrchOrder", "start", function () {
     });
 });
 
+
+module.exports.defbind("setupHomePageURL", "start", function () {
+    if (this.home_page_id && !this.home_page_url) {
+        try {
+            this.home_page_url = UI.pages.getThrowIfUnrecognized(this.home_page_id).getSimpleURL();
+        } catch (e) {
+            this.report(e);
+        }
+    }
+    this.last_non_trans_page_url = this.home_page_url;
+});
 
 /*
 * To output session properties as a JSON object
