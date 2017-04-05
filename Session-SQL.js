@@ -13,6 +13,7 @@ Access.Session.reassign("prepareSpec", function (spec) {
         start_dttm: "now",
         status: "A",
         runtime: (Rhino.app.runtime_row && Rhino.app.runtime_row.getKey()) || "",
+        lb_server: spec.rsl_lb_server,
         server_ident: Rhino.app.server_ident + " via " + spec.rsl_lb_server,
         chameleon: spec.chameleon || "",
         user_agent: spec.user_agent || "unknown",
