@@ -7,7 +7,7 @@ module.exports = Access.MenuItem.clone({ id: "MenuItem.Level1", });
 
 
 module.exports.override("getLICSSClass", function (render_children) {
-    var class_list = "";
+    var class_list = "css_menu_dyn";
     var i;
     if (this.page) {
         class_list += " css_menu_page_" + this.page;
