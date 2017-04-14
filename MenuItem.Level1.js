@@ -7,7 +7,7 @@ module.exports = Access.MenuItem.clone({ id: "MenuItem.Level1", });
 
 
 module.exports.override("getLICSSClass", function (render_children) {
-    var class_list = "";
+    var class_list = "css_menu_dyn";
     var i;
     if (this.page) {
         class_list += " css_menu_page_" + this.page;
@@ -50,7 +50,7 @@ module.exports.override("renderElement", function (session, pr_elmt_arr, render_
                 .text(bits.label);
         }
         if (this.glyphicon) {
-            pr_elmt_arr[this.level + 1].addChild("li", null, "css_menu_icon").addChild("i", null, "icon-large " + this.glyphicon);
+            pr_elmt_arr[this.level + 1].addChild("li", null, "css_menu_icon").addChild("i", null, "glyphicon glyph" + this.glyphicon);
         }
     }
     return pr_elmt_arr[this.level + 1];
