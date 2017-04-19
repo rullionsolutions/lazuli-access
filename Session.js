@@ -153,7 +153,7 @@ module.exports.define("getPage", function (page_id, page_key) {
     this.clearPageCache();
     this.page_cache.unshift(page);                // add page to beginning of array
     this.recordAtInterval();
-    if (!page.transactional && page.main_navigation !== false) {
+    if (page.isMainNavigation()) {
         this.last_non_trans_page_url = page.getSimpleURL();
     }
     return page;
