@@ -153,7 +153,7 @@ module.exports.define("getPage", function (page_id, page_key) {
     this.clearPageCache();
     this.page_cache.unshift(page);                // add page to beginning of array
     this.recordAtInterval();
-    if (!page.transactional && page.main_navigation !== false) {
+    if (page.isMainNavigation()) {
         this.last_non_trans_page_url = page.getSimpleURL();
     }
     return page;
@@ -524,14 +524,14 @@ module.exports.define("closeAll", function (except_this_session_id, only_this_us
 // always_check_key forces a check of record's existence
 /**
 * To determine whether or not this user has permission to access the page given by the URL -
-*   if it contains '?page_id=' then allowed() is called on the page specified, otherwise access
+*   if it contains '#page_id=' then allowed() is called on the page specified, otherwise access
 *   is presumed
 * @param url: relative or absolute
 * @return true if access is not prevented, and false otherwise
 */
 module.exports.define("allowedURL", function (url) {
     var page;
-    var match = url.match(/[?&]page_id=(\w+)(&page_key=([\w.]+))?/);
+    var match = url.match(/[#&]page_id=(\w+)(&page_key=([\w.]+))?/);
     this.trace("allowedURL() url: " + url + ", match: " + match);
     if (!match) {
         return true;
