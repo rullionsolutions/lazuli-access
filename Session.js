@@ -2,7 +2,6 @@
 
 var Core = require("lapis-core/index.js");
 var UI = require("lazuli-ui/index.js");
-var SQL = require("lazuli-sql/index.js");
 var Data = require("lazuli-data/index.js");
 var Access = require("lazuli-access/index.js");
 
@@ -22,27 +21,35 @@ module.exports = Core.Base.clone({
 
 
 module.exports.register("start");
+module.exports.register("beforeGetPage");
+module.exports.register("afterGetPage");
+module.exports.register("render");
 module.exports.register("close");
 
 
-module.exports.override("clone", function (spec) {
-    var session;
-    if (!spec.user_id) {
+module.exports.define("getNewSession", function (spec) {
+    if (this.instance) {
+        this.throwError("must be called on a type");
+    }
+    spec.id = Core.Format.getRandomNumber(10000000000);
+    spec.instance = true;
+    return this.clone(spec);
+});
+
+
+module.exports.defbind("setupSession", "cloneInstance", function () {
+    if (!this.user_id) {
         this.throwError("user_id property required");
     }
-    spec.instance = true;
-    this.prepareSpec(spec);
-    session = Core.Base.clone.call(this, spec);
-    session.active = true;
-    session.visits = 0;
-    session.messages = session.getMessageManager();
-    session.page_cache = [];
-    session.active_trans_cache = {};
-    session.roles = [];
-    session.list_section = {};
-    session_cache[spec.id] = session;
-    session.happen("start");
-    return session;
+    this.active = true;
+    this.visits = 0;
+    this.messages = this.getMessageManager();
+    this.page_cache = [];
+    this.active_trans_cache = {};
+    this.roles = [];
+    this.list_section = {};
+    session_cache[this.id] = this;
+    this.happen("start");           // NOTE: could probably just use cloneInstance for this
 });
 
 
@@ -64,13 +71,6 @@ module.exports.define("getMessageManager", function () {
         });
     }
     return this.messages;
-});
-
-
-module.exports.define("prepareSpec", function (spec) {
-    if (!spec.id) {
-        spec.id = Core.Format.getRandomNumber(10000000000);
-    }
 });
 
 
@@ -137,26 +137,23 @@ module.exports.define("getNewTrans", function (props) {
 * @return The page object
 */
 module.exports.define("getPage", function (page_id, page_key) {
-    var page;
-    if (this.force_password_change && page_id !== "ac_pswd_change") {
-        this.messages.add({
-            type: "W",
-            text: "Please change your password before doing anything else",
-        });
-        page_id = "ac_pswd_change";
-        page_key = null;
-    }
-    page = this.getPageFromCacheAndRemove(page_id, page_key);
-    if (!page) {
-        page = this.getNewPage(page_id, page_key);
+    var spec = {
+        page_id: page_id,
+        page_key: page_key,
+    };
+    this.happen("beforeGetPage", spec);
+    spec.page = this.getPageFromCacheAndRemove(spec.page_id, spec.page_key);
+    if (!spec.page) {
+        spec.page = this.getNewPage(page_id, page_key);
     }
     this.clearPageCache();
-    this.page_cache.unshift(page);                // add page to beginning of array
+    this.page_cache.unshift(spec.page);                // add page to beginning of array
     this.recordAtInterval();
-    if (page.isMainNavigation()) {
-        this.last_non_trans_page_url = page.getSimpleURL();
+    if (spec.page.isMainNavigation()) {
+        this.last_non_trans_page_url = spec.page.getSimpleURL();
     }
-    return page;
+    this.happen("afterGetPage", spec);
+    return spec.page;
 });
 
 
@@ -179,21 +176,6 @@ module.exports.define("getPageFromCacheAndRemove", function (page_id, page_key) 
             break;
         }
     }
-    // i = 0;
-    // cancel other transactional pages and clear from cache
-    // while (i < this.page_cache.length) {
-    //     if (this.page_cache[i].transactional ) {
-    //         if (this.page_cache[i].active) {
-    //             this.page_cache[i].cancel();
-    //         }
-    //         this.page_cache.splice(i, 1);            // remove page from page_cache
-    //     } else {
-    //         i += 1;
-    //     }
-    // }
-    // if (page && page.active && page_key && page_key !== page.page_key) {
-    //     page.cancel();        // makes page inactive
-    // }
     if (page && !page.active) {
         page = null;
     }
@@ -280,121 +262,6 @@ module.exports.define("getNewPage", function (page_id, page_key) {
 
 
 /**
-* To efficiently obtain and process the active workflow tasks for a specific
-*   page_id/page_key combination
-* @param page_id, page_key, callback function called for each task, having arguments:
-*   assigned_user, user_name, attributes array
-*   due_date, one_time_lock_code, wf_inst_id, wf_inst_node_id, wf_inst_node_title;
-*   if the function returns false, the loop is exited
-*/
-module.exports.define("getPageTasks", function (page_id, key, callback) {
-    return undefined;
-});
-
-
-/**
-* To get the attributes of the first active task found for the given page_id/page_key combination
-* @param page_id, page_key
-* @return object containing the task's information, if found, or undefined
-*/
-module.exports.define("getPageTaskInfo", function (page_id, page_key) {
-    var out;
-    this.getPageTasks(page_id, page_key, function (assigned_user, user_name, attributes,
-            due_date, one_time_lock_code, inst_id, node_id, node_title) {
-        if (assigned_user) {
-            out = {
-                assigned_user_id: assigned_user,
-                assigned_user_name: Core.Format.convertNameFirstSpaceLast(user_name),
-                attributes: attributes,
-                due_date: Date.parse(due_date).display(),
-                one_time_lock_code: one_time_lock_code,
-                wf_inst_id: inst_id,
-                wf_inst_node_id: node_id,
-                wf_inst_node_title: node_title,
-            };
-            // break after 1st hit with an assigned user (would there ever be any others?)
-            return false;
-        }
-        return true;
-    });
-    return out;
-});
-
-
-/*
-* To see whether there is a workflow task for the page_id / key combination that is performable
-*       by this user, according to the following logic:
-* 1. if an active workflow task for this page_id / key is assigned to this user, return true;
-* 2. otherwise if an active workflow task for this page_id / key has a one time execution lock
-*       code that matches the one for this session
-* 3. otherwise if an active workflow task for this page_id / key exists and the access_to_page
-*       argument is true, return true;
-* 4. otherwise if an active workflow task for this page_id / key has its 'automatic' attribute
-*       set, return true;
-* 5. otherwise if an active workflow task for this page_id / key is assigned to a user who has
-*       delegated to this user, return true;
-* 6. if no matching active workflow tasks for this page_id / key combination satisfy the above,
-*       return false
-* @params page id (string); page key (string) mandatory if page requires a key; access_to_page
-*       (boolean) optional, true to apply any active matching workflow task to this user
-* @return true if at least one active matching workflow task is relevant for this user, false
-*       otherwise
-*/
-module.exports.define("allowedPageTask", function (page_id, page_key, allowed) {
-    var that = this;
-    this.getPageTasks(page_id, page_key, function (assigned_user, user_name, attributes,
-            due_date, one_time_lock_code, inst_id, node_id, node_title) {
-        var text;
-        var reason;
-
-        if (assigned_user === that.user_id) {
-            reason = "user is task assignee";
-            text = "You are performing your assigned task: ";
-        }
-        if (one_time_lock_code === that.one_time_lock_code && (attributes.indexOf("OT") > -1)) {
-            reason = "one-time lock code supplied";
-            text = "You are performing this task as a guest: ";
-            allowed.one_time_guest_wf_access = true;
-        }
-        if (allowed.access) {
-            reason = "active task exists, user has basic access";
-            text = "You are performing general task: ";
-        }
-        if (attributes.indexOf("AU") > -1) {
-            reason = "task is automatic";
-        }
-        if (that.delegaters && that.delegaters[assigned_user] && (attributes.indexOf("PD") === -1)) {
-            reason = "user is delegatee of task assignee";
-            text = "You are performing your delegated task: ";
-        }
-        if (reason) {
-            allowed.reason = (allowed.reason ? allowed.reason + ", " : "") + reason;
-            allowed.task_found = true;
-            if (!allowed.wf_tasks) {
-                allowed.wf_tasks = [];
-            }
-            allowed.wf_tasks.push([
-                inst_id,
-                node_id,
-                (text && (attributes.indexOf("ST") > -1) ? text + node_title : null),
-            ]);
-        }
-
-        this.debug("allowedPageTask(): " + reason + ", " + text + ", " + attributes);
-        return true;            // process all matching tasks
-//        return !allowed.task_found;
-        // if task_found then no further processing is required
-    });
-    return allowed.task_found;
-});
-
-
-module.exports.define("checkCompletedWorkflowTask", function (page_id, page_key, allowed) {
-    return undefined;
-});
-
-
-/**
 * Get a page object from cache, according to the given page_id passed in, if it exists in the cache
 * @param page id: string
 * @return page object if present in cache, else null
@@ -462,7 +329,6 @@ module.exports.define("close", function () {
     this.updateVisit();            // report leftover messages
     this.clearPageCache(true);
     this.cancelActiveTransactions();
-    this.persistSessionEnd();
     if (this.http_session) {
         try {
             this.http_session.removeAttribute("js_session");
@@ -492,11 +358,6 @@ module.exports.define("cancelActiveTransactions", function () {
     Object.keys(this.active_trans_cache).forEach(function (trans_id) {
         that.active_trans_cache[trans_id].cancel();     // calls removeActiveTransaction()
     });
-});
-
-
-module.exports.define("persistSessionEnd", function () {
-    return undefined;
 });
 
 
@@ -568,57 +429,8 @@ module.exports.define("checkSecurityLevel", function (obj, allowed, level) {
 });
 
 
-module.exports.define("renderTaskRecord", function (resultset, iter) {
-    var css_class = "css_task";
-    var elmt_task;
-    var page_id = SQL.Connection.getColumnString(resultset, 1);
-    var page_key = SQL.Connection.getColumnString(resultset, 2);
-    var step_title = SQL.Connection.getColumnString(resultset, 3);
-    var inst_title = SQL.Connection.getColumnString(resultset, 4);
-    var due_date = SQL.Connection.getColumnString(resultset, 5);
-    var module = SQL.Connection.getColumnString(resultset, 6);
-    var page = UI.pages.getThrowIfUnrecognized(page_id);
-
-    if (iter.module !== module) {
-        this.renderTaskModule(iter, module);
-    }
-    if (iter.page_id !== page_id) {
-        this.renderTaskGroup(iter, page_id, step_title);
-    }
-    if (due_date && due_date < iter.today) {
-        css_class += "_overdue";
-    }
-    elmt_task = iter.elmt_task_group.addChild("li", null, css_class).addChild("a");
-    elmt_task.attribute("href", page.getSimpleURL(page_key));
-    elmt_task.addText(inst_title);
-});
-
-
-module.exports.define("renderTaskModule", function (iter, module) {
-    iter.elmt_module = iter.elmt_top.addChild("div", module, "css_menu_tasks");
-    iter.module = module;
-});
-
-
-module.exports.define("renderTaskGroup", function (iter, page_id, step_title) {
-    // var li_elmt,
-    //      a_elmt;
-//    iter.elmt_task_group = iter.elmt_module.addChild("ul", null, "nav nav-list");
-//    iter.elmt_task_group.addChild("li", null, "nav-header", step_title);
-
-    // li_elmt = iter.elmt_module.addChild("li", null, "dropdown-submenu");
-    //  a_elmt = li_elmt.addChild("a", page_id);
-    //  a_elmt.attribute("data-toggle", "dropdown");
-    //  a_elmt.attribute("href", "#");
-    //  a_elmt.addChild("i", null, "glyphicon glyphicon-ok");
-    //  a_elmt.addText(step_title);
-    // iter.elmt_task_group = li_elmt.addChild("ul", null, "dropdown-menu");
-    // iter.elmt_task_group.attribute("aria-labelledby", page_id);
-
-    iter.elmt_task_group = iter.elmt_module;            // no sub-level
-    iter.elmt_task_group.makeElement("li", "divider").attr("role", "separator");
-    iter.elmt_task_group.makeElement("li", "dropdown-header").text(step_title);
-    iter.page_id = page_id;
+module.exports.define("allowedPageTask", function (page_id, page_key, allowed) {
+    return false;
 });
 
 
@@ -649,13 +461,10 @@ module.exports.define("render", function (elmt, render_opts) {
 
     this.messages.render(elmt.makeElement("div", "css_hide", "css_payload_messages"), "report");
     this.messages.clear("report");
-    this.renderTasks(elmt.makeElement("div", "css_hide", "css_payload_tasks"));
-});
-
-
-// to be overridden in wf
-module.exports.define("renderTasks", function (elmt) {
-    return undefined;
+    this.happen("render", {
+        parent_elmt: elmt,
+        render_opts: render_opts,
+    });
 });
 
 

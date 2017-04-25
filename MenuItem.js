@@ -161,8 +161,8 @@ module.exports.define("renderItem", function (session, pr_elmt_arr) {
 
 module.exports.define("renderElement", function (session, pr_elmt_arr) {
     // if (!pr_elmt_arr[1]) {
-    //     pr_elmt_arr[1] = pr_elmt_arr[0].addChild("ul", null, "nav nav-pills");
-    //     pr_elmt_arr[1].attribute("role", "navigation");
+    //     pr_elmt_arr[1] = pr_elmt_arr[0].makeElement("ul", "nav nav-pills");
+    //     pr_elmt_arr[1].attr("role", "navigation");
     // }
     // return pr_elmt_arr[1];
     return pr_elmt_arr[0];

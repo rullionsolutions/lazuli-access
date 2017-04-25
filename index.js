@@ -12,7 +12,6 @@ exports.roles = Core.Collection.clone({
 
 
 exports.Session = require("lazuli-access/Session.js");
-require("lazuli-access/Session-SQL.js");
 exports.MenuItem = require("lazuli-access/MenuItem.js");
 exports.MenuItem = require("lazuli-access/MenuItem.js");
 exports.MenuItem.Level1 = require("lazuli-access/MenuItem.Level1.js");
