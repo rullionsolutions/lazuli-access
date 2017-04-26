@@ -126,6 +126,7 @@ module.exports.define("getNewTrans", function (props) {
     props.session = this;
     trans = Data.Transaction.clone(props);
     // this.curr_active_trans = trans;
+    this.getMessageManager().trans = trans;
     return trans;
 });
 
@@ -144,7 +145,7 @@ module.exports.define("getPage", function (page_id, page_key) {
     this.happen("beforeGetPage", spec);
     spec.page = this.getPageFromCacheAndRemove(spec.page_id, spec.page_key);
     if (!spec.page) {
-        spec.page = this.getNewPage(page_id, page_key);
+        spec.page = this.getNewPage(spec.page_id, spec.page_key);
     }
     this.clearPageCache();
     this.page_cache.unshift(spec.page);                // add page to beginning of array
@@ -434,6 +435,11 @@ module.exports.define("allowedPageTask", function (page_id, page_key, allowed) {
 });
 
 
+module.exports.define("getPageTaskInfo", function (page_id, page_key) {
+    return undefined;
+});
+
+
 /**
 * To render this session's information
 * @param XmlStream object to render the HTML to
@@ -584,6 +590,6 @@ module.exports.define("newVisit", function (page_id, page_title, params, page_ke
 
 
 module.exports.define("updateVisit", function (trans, start_time) {
-    this.messages.trans = trans;
+    // this.messages.trans = trans;
     // this.messages.clear("record");
 });
