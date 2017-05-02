@@ -28,7 +28,7 @@ module.exports.override("renderElement", function (session, pr_elmt_arr, render_
                 .attr("role", "separator");
         }
         if (render_children && !bits.url) {
-            pr_elmt.makeElement("li", "dropdown-header").text(bits.label);
+            pr_elmt.makeElement("li", "nav-header").text(bits.label);
         } else {
             li_elmt = pr_elmt.makeElement("li");
             a_elmt = li_elmt.makeElement("a", null, this.id);

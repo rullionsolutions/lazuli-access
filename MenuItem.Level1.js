@@ -16,7 +16,7 @@ module.exports.override("getLICSSClass", function (render_children) {
         class_list += " css_menu_area_" + this.modules[i];
     }
     if (render_children) {
-        class_list += " dropdown";
+        class_list += " has-sub";
     }
     return class_list;
 });
@@ -26,23 +26,26 @@ module.exports.override("renderElement", function (session, pr_elmt_arr, render_
     var bits = this.getURLandLabel(session);
     var pr_elmt;
     var li_elmt;
+    var anchor_elmt;
 
     if (!pr_elmt_arr[this.level + 1] && (bits.url || render_children)) {
         pr_elmt = this.parent_item.renderElement(session, pr_elmt_arr, true);
         li_elmt = pr_elmt.makeElement("li", this.getLICSSClass(render_children));
-        if (render_children) {
-            li_elmt.makeDropdownIcon(this.id, bits.label, bits.url || "#");
-            pr_elmt_arr[this.level + 1] = li_elmt.makeElement("ul", "dropdown-menu");
-            pr_elmt_arr[this.level + 1].attr("aria-labelledby", this.id);
-        } else {
-            li_elmt.makeElement("a")
-                .attr("href", bits.url || "#")
-                .text(bits.label);
+
+        anchor_elmt = li_elmt.makeElement("a")
+            .attr("href", bits.url || "javascript:;");
+
+        if (this.fa_icon) {
+            anchor_elmt.makeElement("i", "fa " + this.fa_icon);
         }
-        if (this.glyphicon) {
-            pr_elmt_arr[this.level + 1]
-                .makeElement("li", "css_menu_icon")
-                .makeElement("i", "glyphicon glyph" + this.glyphicon);
+        if (render_children) {
+            anchor_elmt.makeElement("b", "caret pull-right");
+        }
+        anchor_elmt.makeElement("span").text(bits.label);
+
+        if (render_children) {
+            pr_elmt_arr[this.level + 1] = li_elmt.makeElement("ul", "sub-menu");
+            pr_elmt_arr[this.level + 1].attr("aria-labelledby", this.id);
         }
     }
     return pr_elmt_arr[this.level + 1];
