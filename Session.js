@@ -140,7 +140,7 @@ module.exports.define("getNewTrans", function (props) {
 module.exports.define("getPage", function (page_id, page_key) {
     var spec = {
         page_id: page_id,
-        page_key: page_key,
+        page_key: page_key || "",       // map null or undefined to blank string
     };
     this.happen("beforeGetPage", spec);
     spec.page = this.getPageFromCacheAndRemove(spec.page_id, spec.page_key);
